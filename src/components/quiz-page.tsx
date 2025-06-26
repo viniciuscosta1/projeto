@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
-import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe, Flame } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe, Flame, ArrowRight } from 'lucide-react';
 import type { Question, PlayerScore } from '@/lib/types';
 import { initialQuestions } from '@/lib/questions';
 import { adaptQuizDifficulty } from '@/ai/flows/adapt-quiz-difficulty';
@@ -232,10 +232,6 @@ export function QuizPage() {
       setCurrentStreak(0);
     }
     setGameState('feedback');
-
-    setTimeout(() => {
-      handleNextQuestion();
-    }, 3000);
   };
 
   const handleSaveScore = () => {
@@ -406,19 +402,30 @@ export function QuizPage() {
             ))}
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex-col items-stretch gap-4">
           {gameState === 'feedback' && (
-             <Alert variant={isAnswerCorrect ? "default" : "destructive"} className="w-full animate-in fade-in-0">
-               <div className="flex items-center gap-2">
-                {isAnswerCorrect ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
-                <AlertTitle>{isAnswerCorrect ? 'Correto!' : 'Incorreto!'}</AlertTitle>
-               </div>
-              <AlertDescription className="pl-7 pt-1">
-                {displayQuestion.explanation}
-              </AlertDescription>
-            </Alert>
+            <>
+              <Alert variant={isAnswerCorrect ? "default" : "destructive"} className="w-full animate-in fade-in-0">
+                <div className="flex items-center gap-2">
+                  {isAnswerCorrect ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
+                  <AlertTitle>{isAnswerCorrect ? 'Correto!' : 'Incorreto!'}</AlertTitle>
+                </div>
+                <AlertDescription className="pl-7 pt-1">
+                  {displayQuestion.explanation}
+                </AlertDescription>
+              </Alert>
+              <Button onClick={handleNextQuestion} className="w-full" size="lg">
+                {answeredQuestions.length === initialQuestions.length ? 'Ver Resultados' : 'Próxima Pergunta'}
+                <ArrowRight />
+              </Button>
+            </>
           )}
-           {isLoadingAI && <Loader2 className="w-4 h-4 animate-spin" />}
+           {isLoadingAI && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>A IA está ajustando a dificuldade...</span>
+            </div>
+           )}
         </CardFooter>
       </Card>
     );
