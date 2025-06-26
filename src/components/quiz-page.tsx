@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
-import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe, Flame } from 'lucide-react';
 import type { Question, PlayerScore } from '@/lib/types';
 import { initialQuestions } from '@/lib/questions';
 import { adaptQuizDifficulty } from '@/ai/flows/adapt-quiz-difficulty';
@@ -45,6 +45,12 @@ export function QuizPage() {
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [language, setLanguage] = useState('Brazilian Portuguese');
+
+  const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
+  const [incorrectAnswersCount, setIncorrectAnswersCount] = useState(0);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [longestStreak, setLongestStreak] = useState(0);
+
 
   const { toast } = useToast();
 
@@ -125,6 +131,10 @@ export function QuizPage() {
     setScore(0);
     setAnsweredQuestions([]);
     setTranslatedQuestion(null);
+    setCorrectAnswersCount(0);
+    setIncorrectAnswersCount(0);
+    setCurrentStreak(0);
+    setLongestStreak(0);
     const answeredIds = [];
     const firstQuestion = pickQuestion('easy', answeredIds);
     setCurrentQuestion(firstQuestion);
@@ -209,6 +219,17 @@ export function QuizPage() {
     setIsAnswerCorrect(correct);
     if (correct) {
       setScore(prev => prev + 10);
+      setCorrectAnswersCount(prev => prev + 1);
+      setCurrentStreak(prev => {
+        const newStreak = prev + 1;
+        if (newStreak > longestStreak) {
+          setLongestStreak(newStreak);
+        }
+        return newStreak;
+      });
+    } else {
+      setIncorrectAnswersCount(prev => prev + 1);
+      setCurrentStreak(0);
     }
     setGameState('feedback');
 
@@ -341,7 +362,21 @@ export function QuizPage() {
               <span>Pontos: {score}</span>
             </div>
           </div>
-          <CardTitle className="pt-4 text-2xl font-headline">{displayQuestion.question}</CardTitle>
+           <div className="flex justify-around items-center py-2 border-t border-b mt-4 mb-2">
+                <div className="flex items-center gap-1 text-green-600 font-medium">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>{correctAnswersCount} Acertos</span>
+                </div>
+                <div className="flex items-center gap-1 text-red-600 font-medium">
+                    <XCircle className="w-5 h-5" />
+                    <span>{incorrectAnswersCount} Erros</span>
+                </div>
+                <div className="flex items-center gap-1 text-orange-500 font-medium">
+                    <Flame className="w-5 h-5" />
+                    <span>Sequência: {currentStreak}</span>
+                </div>
+           </div>
+          <CardTitle className="pt-2 text-2xl font-headline">{displayQuestion.question}</CardTitle>
            <Badge variant="outline" className="w-fit">{displayQuestion.category}</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -399,7 +434,23 @@ export function QuizPage() {
       <CardContent className="text-center space-y-4">
         <p className="text-2xl">Sua pontuação final é:</p>
         <p className="text-6xl font-bold text-primary">{score}</p>
-        <div className="flex items-center justify-center gap-2 pt-4">
+        
+        <div className="grid grid-cols-3 gap-4 text-center py-4 border-t border-b my-4">
+            <div>
+                <p className="text-sm text-muted-foreground">Acertos</p>
+                <p className="text-2xl font-bold text-green-600">{correctAnswersCount}</p>
+            </div>
+            <div>
+                <p className="text-sm text-muted-foreground">Erros</p>
+                <p className="text-2xl font-bold text-red-600">{incorrectAnswersCount}</p>
+            </div>
+            <div>
+                <p className="text-sm text-muted-foreground">Melhor Sequência</p>
+                <p className="text-2xl font-bold text-orange-500">{longestStreak}</p>
+            </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-2">
           <Input 
             type="text" 
             placeholder="Digite seu nome para o ranking" 
