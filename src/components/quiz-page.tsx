@@ -269,7 +269,7 @@ export function QuizPage() {
         <div className="flex justify-center items-center gap-4 mb-4">
           <BrainCircuit className="w-12 h-12 text-primary" />
           <div>
-            <CardTitle className="text-3xl font-bold font-headline">GlobalMind Quiz</CardTitle>
+            <CardTitle className="text-3xl font-bold">GlobalMind Quiz</CardTitle>
             <CardDescription className="text-md">Conectando Culturas, Idiomas e Saberes Globais</CardDescription>
           </div>
         </div>
@@ -317,16 +317,17 @@ export function QuizPage() {
     }
     
     const getButtonClass = (option: string) => {
+      const baseClasses = 'justify-start text-left h-auto whitespace-normal py-3';
       if (gameState !== 'feedback') {
-        return 'justify-start text-left h-auto';
+        return baseClasses;
       }
       if (option === displayQuestion.answer) {
-        return 'justify-start text-left h-auto bg-green-100 border-green-500 text-green-800 hover:bg-green-200 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300';
+        return `${baseClasses} border-2 border-green-500 bg-green-50 text-green-900 dark:bg-green-900/30 dark:text-green-200 dark:border-green-600`;
       }
       if (option === selectedAnswer) {
-        return 'justify-start text-left h-auto bg-red-100 border-red-500 text-red-800 hover:bg-red-200 dark:bg-red-900/50 dark:border-red-700 dark:text-red-300';
+        return `${baseClasses} border-2 border-red-500 bg-red-50 text-red-900 dark:bg-red-900/30 dark:text-red-200 dark:border-red-600`;
       }
-      return 'justify-start text-left h-auto';
+      return `${baseClasses} opacity-50 cursor-not-allowed`;
     };
 
     return (
@@ -372,7 +373,7 @@ export function QuizPage() {
                     <span>Sequência: {currentStreak}</span>
                 </div>
            </div>
-          <CardTitle className="pt-2 text-2xl font-headline">{displayQuestion.question}</CardTitle>
+          <CardTitle className="pt-2 text-2xl">{displayQuestion.question}</CardTitle>
            <Badge variant="outline" className="w-fit">{displayQuestion.category}</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -405,14 +406,12 @@ export function QuizPage() {
         <CardFooter className="flex-col items-stretch gap-4">
           {gameState === 'feedback' && (
             <>
-              <Alert variant={isAnswerCorrect ? "default" : "destructive"} className="w-full animate-in fade-in-0">
-                <div className="flex items-center gap-2">
-                  {isAnswerCorrect ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
-                  <AlertTitle>{isAnswerCorrect ? 'Correto!' : 'Incorreto!'}</AlertTitle>
-                </div>
-                <AlertDescription className="pl-7 pt-1">
-                  {displayQuestion.explanation}
-                </AlertDescription>
+              <Alert variant={isAnswerCorrect ? "success" : "destructive"} className="w-full animate-in fade-in-0">
+                  {isAnswerCorrect ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                  <AlertTitle className="font-bold">{isAnswerCorrect ? 'Correto!' : 'Incorreto!'}</AlertTitle>
+                  <AlertDescription>
+                    {displayQuestion.explanation}
+                  </AlertDescription>
               </Alert>
               <Button onClick={handleNextQuestion} className="w-full" size="lg">
                 {answeredQuestions.length === initialQuestions.length ? 'Ver Resultados' : 'Próxima Pergunta'}
@@ -435,7 +434,7 @@ export function QuizPage() {
     <Card className="w-full max-w-2xl animate-in fade-in-0 zoom-in-95">
       <CardHeader className="text-center">
         <Trophy className="w-16 h-16 text-yellow-500 mx-auto" />
-        <CardTitle className="text-3xl font-bold font-headline">Quiz Finalizado!</CardTitle>
+        <CardTitle className="text-3xl font-bold">Quiz Finalizado!</CardTitle>
         <CardDescription>Parabéns por completar o desafio!</CardDescription>
       </CardHeader>
       <CardContent className="text-center space-y-4">
