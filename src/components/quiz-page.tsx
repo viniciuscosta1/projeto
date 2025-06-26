@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
-import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe, Flame, ArrowRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import type { User } from '@supabase/supabase-js';
+import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe, Flame, ArrowRight, LogOut } from 'lucide-react';
 import type { Question, PlayerScore } from '@/lib/types';
 import { initialQuestions } from '@/lib/questions';
 import { adaptQuizDifficulty } from '@/ai/flows/adapt-quiz-difficulty';
 import { translateText } from '@/ai/flows/translate-text-flow';
+import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Leaderboard } from './leaderboard';
 import { Badge } from './ui/badge';
@@ -29,8 +31,12 @@ const supportedLanguages = [
   { value: 'Mandarin Chinese', label: '中文 (简体)' },
 ];
 
+interface QuizPageProps {
+    user: User & { name: string };
+}
 
-export function QuizPage() {
+export function QuizPage({ user }: QuizPageProps) {
+  const router = useRouter();
   const [gameState, setGameState] = useState<GameState>('welcome');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -40,7 +46,6 @@ export function QuizPage() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null>(null);
   const [leaderboard, setLeaderboard] = useState<PlayerScore[]>([]);
-  const [playerName, setPlayerName] = useState('');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
@@ -50,7 +55,6 @@ export function QuizPage() {
   const [incorrectAnswersCount, setIncorrectAnswersCount] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [longestStreak, setLongestStreak] = useState(0);
-
 
   const { toast } = useToast();
 
@@ -180,6 +184,7 @@ export function QuizPage() {
 
   const handleNextQuestion = useCallback(() => {
     if (answeredQuestions.length === initialQuestions.length) {
+      handleSaveScore(); // Auto-save score at the end
       setGameState('finished');
       return;
     }
@@ -235,16 +240,8 @@ export function QuizPage() {
   };
 
   const handleSaveScore = () => {
-    if (!playerName.trim()) {
-      toast({
-        title: "Nome inválido",
-        description: "Por favor, insira um nome.",
-        variant: "destructive",
-      });
-      return;
-    }
     const newScore: PlayerScore = {
-      name: playerName,
+      name: user.name,
       score,
       date: new Date().toISOString(),
     };
@@ -258,7 +255,13 @@ export function QuizPage() {
     } catch (error) {
       console.error('Failed to save leaderboard to localStorage:', error);
     }
-    setPlayerName('');
+  };
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
   };
   
   const questionIndex = useMemo(() => answeredQuestions.length -1, [answeredQuestions]);
@@ -270,7 +273,7 @@ export function QuizPage() {
           <BrainCircuit className="w-12 h-12 text-primary" />
           <div>
             <CardTitle className="text-3xl font-bold">GlobalMind Quiz</CardTitle>
-            <CardDescription className="text-md">Conectando Culturas, Idiomas e Saberes Globais</CardDescription>
+            <CardDescription className="text-md">Olá, {user.name}! Bem-vindo(a) de volta.</CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -297,6 +300,10 @@ export function QuizPage() {
         </div>
         <Button onClick={handleStartQuiz} className="w-full mt-4" size="lg">
           Começar o Quiz!
+        </Button>
+         <Button variant="link" onClick={handleLogout} className="text-muted-foreground">
+            Sair
+            <LogOut className="ml-2 h-4 w-4" />
         </Button>
       </CardFooter>
     </Card>
@@ -435,7 +442,7 @@ export function QuizPage() {
       <CardHeader className="text-center">
         <Trophy className="w-16 h-16 text-yellow-500 mx-auto" />
         <CardTitle className="text-3xl font-bold">Quiz Finalizado!</CardTitle>
-        <CardDescription>Parabéns por completar o desafio!</CardDescription>
+        <CardDescription>Parabéns, {user.name}, por completar o desafio!</CardDescription>
       </CardHeader>
       <CardContent className="text-center space-y-4">
         <p className="text-2xl">Sua pontuação final é:</p>
@@ -456,24 +463,18 @@ export function QuizPage() {
             </div>
         </div>
 
-        <div className="flex items-center justify-center gap-2">
-          <Input 
-            type="text" 
-            placeholder="Digite seu nome para o ranking" 
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            className="max-w-xs"
-          />
-          <Button onClick={handleSaveScore} disabled={!playerName.trim()}>Salvar Pontuação</Button>
-        </div>
         <div className="pt-4">
           <Leaderboard scores={leaderboard} />
         </div>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex-col gap-2">
         <Button onClick={handleStartQuiz} className="w-full" size="lg">
           <Sparkles className="mr-2 h-4 w-4"/>
           Jogar Novamente
+        </Button>
+         <Button variant="link" onClick={handleLogout} className="text-muted-foreground">
+            Sair
+            <LogOut className="ml-2 h-4 w-4" />
         </Button>
       </CardFooter>
     </Card>
