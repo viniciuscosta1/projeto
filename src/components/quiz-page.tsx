@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
-import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2 } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe } from 'lucide-react';
 import type { Question, PlayerScore } from '@/lib/types';
 import { initialQuestions } from '@/lib/questions';
 import { adaptQuizDifficulty } from '@/ai/flows/adapt-quiz-difficulty';
+import { translateText } from '@/ai/flows/translate-text-flow';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -14,13 +15,26 @@ import { useToast } from '@/hooks/use-toast';
 import { Leaderboard } from './leaderboard';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 type GameState = 'welcome' | 'playing' | 'feedback' | 'finished';
+
+const supportedLanguages = [
+  { value: 'Brazilian Portuguese', label: 'Português (Brasil)' },
+  { value: 'English', label: 'English' },
+  { value: 'Spanish', label: 'Español' },
+  { value: 'French', label: 'Français' },
+  { value: 'German', label: 'Deutsch' },
+  { value: 'Mandarin Chinese', label: '中文 (简体)' },
+];
+
 
 export function QuizPage() {
   const [gameState, setGameState] = useState<GameState>('welcome');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [translatedQuestion, setTranslatedQuestion] = useState<Question | null>(null);
   const [answeredQuestions, setAnsweredQuestions] = useState<Question[]>([]);
   const [score, setScore] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -29,6 +43,8 @@ export function QuizPage() {
   const [playerName, setPlayerName] = useState('');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [language, setLanguage] = useState('Brazilian Portuguese');
 
   const { toast } = useToast();
 
@@ -54,15 +70,81 @@ export function QuizPage() {
     
     return pool[Math.floor(Math.random() * pool.length)];
   }, []);
+  
+  const translateQuestion = useCallback(async (questionToTranslate: Question, targetLanguage: string) => {
+    if (targetLanguage === 'Brazilian Portuguese') {
+      setTranslatedQuestion(null);
+      return;
+    }
+    if (!questionToTranslate) return;
+
+    setIsTranslating(true);
+    
+    try {
+      const textsToTranslate = [
+        questionToTranslate.question,
+        ...questionToTranslate.options,
+        questionToTranslate.explanation,
+        questionToTranslate.answer,
+      ];
+
+      const translationPromises = textsToTranslate.map(text => 
+        translateText({ text, targetLanguage })
+      );
+      
+      const translatedResults = await Promise.all(translationPromises);
+      const translatedTexts = translatedResults.map(r => r.translatedText);
+      
+      const [question, ...rest] = translatedTexts;
+      const options = rest.slice(0, questionToTranslate.options.length);
+      const explanation = rest[questionToTranslate.options.length];
+      const answer = rest[questionToTranslate.options.length + 1];
+
+      setTranslatedQuestion({
+        ...questionToTranslate,
+        question,
+        options,
+        explanation,
+        answer,
+      });
+    } catch (error) {
+      console.error('Translation error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro na tradução',
+        description: 'Não foi possível traduzir o quiz. Tente novamente.',
+      });
+      setLanguage('Brazilian Portuguese'); // Revert on error
+    } finally {
+      setIsTranslating(false);
+    }
+  }, [toast]);
+
 
   const handleStartQuiz = () => {
     setScore(0);
     setAnsweredQuestions([]);
+    setTranslatedQuestion(null);
     const answeredIds = [];
     const firstQuestion = pickQuestion('easy', answeredIds);
     setCurrentQuestion(firstQuestion);
     setAnsweredQuestions(firstQuestion ? [firstQuestion] : []);
     setGameState('playing');
+
+    if (language !== 'Brazilian Portuguese' && firstQuestion) {
+      translateQuestion(firstQuestion, language);
+    }
+  };
+
+  const handleLanguageChange = (newLanguage: string) => {
+    setLanguage(newLanguage);
+    if (gameState === 'playing' && currentQuestion) {
+      toast({
+        title: "Traduzindo...",
+        description: `Alterando idioma para ${supportedLanguages.find(l => l.value === newLanguage)?.label}.`,
+      });
+      translateQuestion(currentQuestion, newLanguage);
+    }
   };
 
   const adaptDifficulty = useCallback(async () => {
@@ -107,14 +189,22 @@ export function QuizPage() {
     setSelectedAnswer(null);
     setIsAnswerCorrect(null);
     setGameState('playing');
+    setTranslatedQuestion(null);
 
-  }, [answeredQuestions, difficulty, pickQuestion, adaptDifficulty]);
+    if (nextQuestion) {
+        if (language !== 'Brazilian Portuguese') {
+            translateQuestion(nextQuestion, language);
+        }
+    }
+
+  }, [answeredQuestions, difficulty, pickQuestion, adaptDifficulty, language, translateQuestion]);
 
 
   const handleSelectAnswer = (answer: string) => {
-    if (!currentQuestion) return;
+    const displayQuestion = translatedQuestion || currentQuestion;
+    if (!displayQuestion) return;
     
-    const correct = answer === currentQuestion.answer;
+    const correct = answer === displayQuestion.answer;
     setSelectedAnswer(answer);
     setIsAnswerCorrect(correct);
     if (correct) {
@@ -173,8 +263,22 @@ export function QuizPage() {
         </p>
         <Leaderboard scores={leaderboard} />
       </CardContent>
-      <CardFooter>
-        <Button onClick={handleStartQuiz} className="w-full" size="lg">
+      <CardFooter className="flex-col gap-4">
+        <div className="w-full flex flex-col items-center gap-2">
+           <Label className="text-sm text-muted-foreground">Selecione um idioma para o quiz</Label>
+           <Select onValueChange={setLanguage} defaultValue={language}>
+              <SelectTrigger className="w-[240px]">
+                  <Globe className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Selecione o Idioma" />
+              </SelectTrigger>
+              <SelectContent>
+                  {supportedLanguages.map(lang => (
+                  <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
+                  ))}
+              </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={handleStartQuiz} className="w-full mt-4" size="lg">
           Começar o Quiz!
         </Button>
       </CardFooter>
@@ -182,11 +286,14 @@ export function QuizPage() {
   );
 
   const renderQuiz = () => {
-    if (!currentQuestion) {
+    const displayQuestion = translatedQuestion || currentQuestion;
+    
+    if (!displayQuestion) {
       return (
-        <Card>
-          <CardContent className="p-10 text-center">
-            <p>Carregando pergunta...</p>
+        <Card className="w-full max-w-2xl">
+          <CardContent className="p-10 text-center flex items-center justify-center h-96">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="ml-4">Carregando pergunta...</p>
           </CardContent>
         </Card>
       );
@@ -196,7 +303,7 @@ export function QuizPage() {
       if (gameState !== 'feedback') {
         return 'justify-start text-left h-auto';
       }
-      if (option === currentQuestion.answer) {
+      if (option === displayQuestion.answer) {
         return 'justify-start text-left h-auto bg-green-100 border-green-500 text-green-800 hover:bg-green-200 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300';
       }
       if (option === selectedAnswer) {
@@ -206,9 +313,27 @@ export function QuizPage() {
     };
 
     return (
-      <Card key={questionIndex} className="w-full max-w-2xl animate-in fade-in-0 zoom-in-95">
+      <Card key={questionIndex} className="w-full max-w-2xl animate-in fade-in-0 zoom-in-95 relative">
+        {isTranslating && (
+          <div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center z-10 rounded-lg">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        )}
         <CardHeader>
-          <Progress value={(questionIndex / initialQuestions.length) * 100} className="mb-2" />
+          <div className="flex justify-between items-start mb-2 gap-4">
+             <Progress value={(questionIndex / initialQuestions.length) * 100} className="mt-2 w-full" />
+             <Select disabled={isTranslating || gameState === 'feedback'} onValueChange={handleLanguageChange} value={language}>
+              <SelectTrigger className="w-[220px]">
+                  <Globe className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Idioma" />
+              </SelectTrigger>
+              <SelectContent>
+                  {supportedLanguages.map(lang => (
+                  <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
+                  ))}
+              </SelectContent>
+          </Select>
+          </div>
           <div className="flex justify-between items-center text-sm text-muted-foreground">
             <span>Pergunta {questionIndex + 1} de {initialQuestions.length}</span>
             <div className="flex items-center gap-2 font-bold text-primary">
@@ -216,29 +341,29 @@ export function QuizPage() {
               <span>Pontos: {score}</span>
             </div>
           </div>
-          <CardTitle className="pt-4 text-2xl font-headline">{currentQuestion.question}</CardTitle>
-           <Badge variant="outline" className="w-fit">{currentQuestion.category}</Badge>
+          <CardTitle className="pt-4 text-2xl font-headline">{displayQuestion.question}</CardTitle>
+           <Badge variant="outline" className="w-fit">{displayQuestion.category}</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
-          {currentQuestion.image && (
+          {displayQuestion.image && (
             <div className="relative w-full h-48 md:h-64 rounded-lg overflow-hidden">
                <Image
-                src={currentQuestion.image}
-                alt={currentQuestion.question}
+                src={displayQuestion.image}
+                alt={displayQuestion.question}
                 layout="fill"
                 objectFit="cover"
-                data-ai-hint={currentQuestion.imageHint}
+                data-ai-hint={displayQuestion.imageHint}
               />
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {currentQuestion.options.map((option, index) => (
+            {displayQuestion.options.map((option, index) => (
               <Button
                 key={index}
                 variant="outline"
                 className={getButtonClass(option)}
                 onClick={() => handleSelectAnswer(option)}
-                disabled={gameState === 'feedback'}
+                disabled={gameState === 'feedback' || isTranslating}
               >
                 <span className="font-bold mr-2">{String.fromCharCode(65 + index)}.</span>
                 <span className="whitespace-normal">{option}</span>
@@ -254,7 +379,7 @@ export function QuizPage() {
                 <AlertTitle>{isAnswerCorrect ? 'Correto!' : 'Incorreto!'}</AlertTitle>
                </div>
               <AlertDescription className="pl-7 pt-1">
-                {currentQuestion.explanation}
+                {displayQuestion.explanation}
               </AlertDescription>
             </Alert>
           )}
