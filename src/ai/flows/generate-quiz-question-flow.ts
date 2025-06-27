@@ -12,7 +12,7 @@ import {z} from 'genkit';
 
 const GenerateQuestionInputSchema = z.object({
   difficulty: z.enum(['easy', 'medium', 'hard']).describe('The desired difficulty for the question.'),
-  category: z.enum(['Cultura', 'Idioma', 'Sistemas Educacionais', 'Any']).describe('The desired category for the question. "Any" for a random category.'),
+  category: z.enum(['Cultura', 'Idioma', 'Sistemas Educacionais']).describe('The desired category for the question.'),
   previousQuestions: z.array(z.string()).describe('A list of previously asked questions to avoid repetition.'),
 });
 export type GenerateQuestionInput = z.infer<typeof GenerateQuestionInputSchema>;
@@ -42,7 +42,7 @@ const prompt = ai.definePrompt({
 Instructions:
 1.  **Topic**: The quiz is about global cultures, languages, and educational systems.
 2.  **Difficulty**: Generate a question with the difficulty level of '{{{difficulty}}}'.
-3.  **Category**: Generate a question for the category '{{{category}}}'. If the category is 'Any', pick one from 'Cultura', 'Idioma', or 'Sistemas Educacionais'.
+3.  **Category**: Generate a question for the category '{{{category}}}'.
 4.  **Type**: Decide if the question should be 'multiple-choice' (with 4 distinct options) or 'true-false' (with "Verdadeiro" and "Falso" as options).
 5.  **Uniqueness**: Do NOT repeat any of these previously asked questions:
     {{#each previousQuestions}}

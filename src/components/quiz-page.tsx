@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label';
 type GameState = 'welcome' | 'playing' | 'feedback' | 'finished';
 
 const QUIZ_LENGTH = 10;
+const quizCategories: Array<'Cultura' | 'Idioma' | 'Sistemas Educacionais'> = ['Cultura', 'Idioma', 'Sistemas Educacionais'];
 
 const supportedLanguages = [
   { value: 'Brazilian Portuguese', label: 'Português (Brasil)' },
@@ -140,9 +141,10 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
 
     try {
       const prevQuestions = answeredQuestions.map(q => q.question);
+      const randomCategory = quizCategories[Math.floor(Math.random() * quizCategories.length)];
       const questionData = await generateQuizQuestion({
         difficulty: difficultyForNext,
-        category: 'Any',
+        category: randomCategory,
         previousQuestions: prevQuestions,
       });
       
