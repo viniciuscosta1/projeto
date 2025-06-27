@@ -33,9 +33,10 @@ const supportedLanguages = [
 
 interface QuizPageProps {
     user: User & { name: string };
+    isGuest?: boolean;
 }
 
-export function QuizPage({ user }: QuizPageProps) {
+export function QuizPage({ user, isGuest = false }: QuizPageProps) {
   const router = useRouter();
   const [gameState, setGameState] = useState<GameState>('welcome');
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -60,14 +61,26 @@ export function QuizPage({ user }: QuizPageProps) {
 
   useEffect(() => {
     try {
-      const storedScores = localStorage.getItem('globalMindQuizLeaderboard');
-      if (storedScores) {
-        setLeaderboard(JSON.parse(storedScores));
+      const storedTimestamp = localStorage.getItem('globalMindQuizTimestamp');
+      const now = new Date().getTime();
+      const TEN_MINUTES_IN_MS = 10 * 60 * 1000;
+
+      if (storedTimestamp && now - parseInt(storedTimestamp, 10) > TEN_MINUTES_IN_MS) {
+        // Time has expired, reset leaderboard
+        localStorage.removeItem('globalMindQuizLeaderboard');
+        localStorage.removeItem('globalMindQuizTimestamp');
+        setLeaderboard([]);
+        toast({ title: 'Ranking Resetado', description: 'O ranking de pontuação foi reiniciado.' });
+      } else {
+        const storedScores = localStorage.getItem('globalMindQuizLeaderboard');
+        if (storedScores) {
+          setLeaderboard(JSON.parse(storedScores));
+        }
       }
     } catch (error) {
-      console.error('Failed to load leaderboard from localStorage:', error);
+      console.error('Failed to process leaderboard from localStorage:', error);
     }
-  }, []);
+  }, [toast]);
 
   const pickQuestion = useCallback((currentDifficulty: 'easy' | 'medium' | 'hard', answeredIds: number[]) => {
     const availableQuestions = initialQuestions.filter(q => !answeredIds.includes(q.id));
@@ -182,6 +195,37 @@ export function QuizPage({ user }: QuizPageProps) {
     }
   }, [score, answeredQuestions.length, currentQuestion, toast]);
 
+  const handleSaveScore = useCallback(() => {
+    let playerName = user.name;
+    if (isGuest) {
+        const guestId = (user.id as string).slice(-4);
+        playerName = `Convidado ${guestId}`;
+    }
+
+    const newScore: PlayerScore = {
+      name: playerName,
+      score,
+      date: new Date().toISOString(),
+    };
+
+    const updatedLeaderboard = [...leaderboard, newScore]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+    
+    setLeaderboard(updatedLeaderboard);
+
+    try {
+      localStorage.setItem('globalMindQuizLeaderboard', JSON.stringify(updatedLeaderboard));
+      
+      const storedTimestamp = localStorage.getItem('globalMindQuizTimestamp');
+      if (!storedTimestamp) {
+        localStorage.setItem('globalMindQuizTimestamp', new Date().getTime().toString());
+      }
+    } catch (error) {
+      console.error('Failed to save leaderboard to localStorage:', error);
+    }
+  }, [isGuest, user, score, leaderboard]);
+
   const handleNextQuestion = useCallback(() => {
     if (answeredQuestions.length === initialQuestions.length) {
       handleSaveScore(); // Auto-save score at the end
@@ -212,7 +256,7 @@ export function QuizPage({ user }: QuizPageProps) {
         }
     }
 
-  }, [answeredQuestions, difficulty, pickQuestion, adaptDifficulty, language, translateQuestion]);
+  }, [answeredQuestions, difficulty, pickQuestion, adaptDifficulty, language, translateQuestion, handleSaveScore]);
 
 
   const handleSelectAnswer = (answer: string) => {
@@ -238,25 +282,7 @@ export function QuizPage({ user }: QuizPageProps) {
     }
     setGameState('feedback');
   };
-
-  const handleSaveScore = () => {
-    const newScore: PlayerScore = {
-      name: user.name,
-      score,
-      date: new Date().toISOString(),
-    };
-    const updatedLeaderboard = [...leaderboard, newScore]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-    
-    setLeaderboard(updatedLeaderboard);
-    try {
-      localStorage.setItem('globalMindQuizLeaderboard', JSON.stringify(updatedLeaderboard));
-    } catch (error) {
-      console.error('Failed to save leaderboard to localStorage:', error);
-    }
-  };
-
+  
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -273,7 +299,9 @@ export function QuizPage({ user }: QuizPageProps) {
           <BrainCircuit className="w-12 h-12 text-primary" />
           <div>
             <CardTitle className="text-3xl font-bold">GlobalMind Quiz</CardTitle>
-            <CardDescription className="text-md">Olá, {user.name}! Bem-vindo(a) de volta.</CardDescription>
+            <CardDescription className="text-md">
+                {isGuest ? 'Bem-vindo(a) ao modo convidado!' : `Olá, ${user.name}! Bem-vindo(a) de volta.`}
+            </CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -301,10 +329,17 @@ export function QuizPage({ user }: QuizPageProps) {
         <Button onClick={handleStartQuiz} className="w-full mt-4" size="lg">
           Começar o Quiz!
         </Button>
-         <Button variant="link" onClick={handleLogout} className="text-muted-foreground">
-            Sair
-            <LogOut className="ml-2 h-4 w-4" />
-        </Button>
+         {isGuest ? (
+            <Button variant="link" onClick={() => router.push('/login')} className="text-muted-foreground">
+                Sair do modo Convidado
+                <LogOut className="ml-2 h-4 w-4" />
+            </Button>
+         ) : (
+            <Button variant="link" onClick={handleLogout} className="text-muted-foreground">
+                Sair
+                <LogOut className="ml-2 h-4 w-4" />
+            </Button>
+         )}
       </CardFooter>
     </Card>
   );
@@ -442,7 +477,7 @@ export function QuizPage({ user }: QuizPageProps) {
       <CardHeader className="text-center">
         <Trophy className="w-16 h-16 text-yellow-500 mx-auto" />
         <CardTitle className="text-3xl font-bold">Quiz Finalizado!</CardTitle>
-        <CardDescription>Parabéns, {user.name}, por completar o desafio!</CardDescription>
+        <CardDescription>Parabéns, {isGuest ? 'Convidado' : user.name}, por completar o desafio!</CardDescription>
       </CardHeader>
       <CardContent className="text-center space-y-4">
         <p className="text-2xl">Sua pontuação final é:</p>
@@ -472,10 +507,17 @@ export function QuizPage({ user }: QuizPageProps) {
           <Sparkles className="mr-2 h-4 w-4"/>
           Jogar Novamente
         </Button>
-         <Button variant="link" onClick={handleLogout} className="text-muted-foreground">
-            Sair
-            <LogOut className="ml-2 h-4 w-4" />
-        </Button>
+        {isGuest ? (
+            <Button variant="link" onClick={() => router.push('/login')} className="text-muted-foreground">
+                Sair do modo Convidado
+                <LogOut className="ml-2 h-4 w-4" />
+            </Button>
+        ) : (
+            <Button variant="link" onClick={handleLogout} className="text-muted-foreground">
+                Sair
+                <LogOut className="ml-2 h-4 w-4" />
+            </Button>
+        )}
       </CardFooter>
     </Card>
   );
