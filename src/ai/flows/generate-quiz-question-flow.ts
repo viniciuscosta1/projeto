@@ -44,10 +44,13 @@ Instructions:
 2.  **Difficulty**: Generate a question with the difficulty level of '{{{difficulty}}}'.
 3.  **Category**: Generate a question for the category '{{{category}}}'.
 4.  **Type**: Decide if the question should be 'multiple-choice' (with 4 distinct options) or 'true-false' (with "Verdadeiro" and "Falso" as options).
-5.  **Uniqueness**: Do NOT repeat any of these previously asked questions:
+5.  **Uniqueness**: This is a critical rule. You MUST generate a question that is completely different from the following list of previously asked questions. Do NOT repeat them under any circumstances.
+    {{#if previousQuestions}}
+    Previously asked questions:
     {{#each previousQuestions}}
     - "{{this}}"
     {{/each}}
+    {{/if}}
 6.  **Answer**: Ensure the 'answer' field EXACTLY matches one of the strings in the 'options' array.
 7.  **Image Hint**: Provide a concise, two-word, English hint for generating a relevant image. For example, for a question about the Eiffel Tower, the hint could be "Eiffel Tower". For a question about Japanese cherry blossoms, "cherry blossom".
 

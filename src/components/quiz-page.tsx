@@ -212,10 +212,6 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
 
   const adaptDifficulty = useCallback(async () => {
     setIsLoadingAI(true);
-    toast({
-      title: "IA Adaptativa",
-      description: "Ajustando a dificuldade da próxima pergunta...",
-    });
     try {
       const result = await adaptQuizDifficulty({
         userScore: score,
@@ -223,6 +219,10 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
         questionsAnswered: answeredQuestions.length,
       });
       setDifficulty(result.difficultyLevel);
+      toast({
+        title: "IA Adaptativa",
+        description: result.reasoning,
+      });
       return result.difficultyLevel;
     } catch (error) {
       console.error('Error adapting difficulty:', error);
