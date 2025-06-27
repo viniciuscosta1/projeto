@@ -214,7 +214,7 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
     setIsLoadingAI(true);
     try {
       const result = await adaptQuizDifficulty({
-        userScore: score,
+        correctAnswersCount: correctAnswersCount,
         totalQuestions: QUIZ_LENGTH,
         questionsAnswered: answeredQuestions.length,
       });
@@ -230,7 +230,7 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
     } finally {
       setIsLoadingAI(false);
     }
-  }, [score, answeredQuestions.length, toast]);
+  }, [correctAnswersCount, answeredQuestions.length, toast]);
 
   const handleSaveScore = useCallback(() => {
     let playerName = user.name;
@@ -290,13 +290,19 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
 
   const handleSelectAnswer = (answer: string) => {
     const displayQuestion = translatedQuestion || currentQuestion;
-    if (!displayQuestion) return;
+    if (!displayQuestion || !currentQuestion) return;
     
     const correct = answer === displayQuestion.answer;
     setSelectedAnswer(answer);
     setIsAnswerCorrect(correct);
     if (correct) {
-      setScore(prev => prev + 10);
+      const difficultyPoints = {
+        easy: 10,
+        medium: 15,
+        hard: 20,
+      };
+      const pointsGained = difficultyPoints[currentQuestion.difficulty] || 10;
+      setScore(prev => prev + pointsGained);
       setCorrectAnswersCount(prev => prev + 1);
       setCurrentStreak(prev => {
         const newStreak = prev + 1;
