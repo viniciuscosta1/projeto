@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe, Flame, ArrowRight, LogOut } from 'lucide-react';
 import type { Question, PlayerScore } from '@/lib/types';
-import { initialQuestions } from '@/lib/questions';
 import { adaptQuizDifficulty } from '@/ai/flows/adapt-quiz-difficulty';
 import { translateText } from '@/ai/flows/translate-text-flow';
+import { generateQuizQuestion } from '@/ai/flows/generate-quiz-question-flow';
+import { generateQuizImage } from '@/ai/flows/generate-quiz-image-flow';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +22,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 
 type GameState = 'welcome' | 'playing' | 'feedback' | 'finished';
+
+const QUIZ_LENGTH = 10;
 
 const supportedLanguages = [
   { value: 'Brazilian Portuguese', label: 'Português (Brasil)' },
@@ -39,7 +42,6 @@ interface QuizPageProps {
 export function QuizPage({ user, isGuest = false }: QuizPageProps) {
   const router = useRouter();
   const [gameState, setGameState] = useState<GameState>('welcome');
-  const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [translatedQuestion, setTranslatedQuestion] = useState<Question | null>(null);
   const [answeredQuestions, setAnsweredQuestions] = useState<Question[]>([]);
@@ -50,6 +52,7 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [language, setLanguage] = useState('Brazilian Portuguese');
 
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
@@ -66,7 +69,6 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
       const TEN_MINUTES_IN_MS = 10 * 60 * 1000;
 
       if (storedTimestamp && now - parseInt(storedTimestamp, 10) > TEN_MINUTES_IN_MS) {
-        // Time has expired, reset leaderboard
         localStorage.removeItem('globalMindQuizLeaderboard');
         localStorage.removeItem('globalMindQuizTimestamp');
         setLeaderboard([]);
@@ -82,18 +84,6 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
     }
   }, [toast]);
 
-  const pickQuestion = useCallback((currentDifficulty: 'easy' | 'medium' | 'hard', answeredIds: number[]) => {
-    const availableQuestions = initialQuestions.filter(q => !answeredIds.includes(q.id));
-    if (availableQuestions.length === 0) return null;
-
-    let pool = availableQuestions.filter(q => q.difficulty === currentDifficulty);
-    if (pool.length === 0) {
-      pool = availableQuestions; // Fallback to any available question
-    }
-    
-    return pool[Math.floor(Math.random() * pool.length)];
-  }, []);
-  
   const translateQuestion = useCallback(async (questionToTranslate: Question, targetLanguage: string) => {
     if (targetLanguage === 'Brazilian Portuguese') {
       setTranslatedQuestion(null);
@@ -137,11 +127,61 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
         title: 'Erro na tradução',
         description: 'Não foi possível traduzir o quiz. Tente novamente.',
       });
-      setLanguage('Brazilian Portuguese'); // Revert on error
+      setLanguage('Brazilian Portuguese');
     } finally {
       setIsTranslating(false);
     }
   }, [toast]);
+
+  const getNewQuestion = useCallback(async (difficultyForNext: 'easy' | 'medium' | 'hard') => {
+    setIsGenerating(true);
+    setCurrentQuestion(null);
+    setTranslatedQuestion(null);
+
+    try {
+      const prevQuestions = answeredQuestions.map(q => q.question);
+      const questionData = await generateQuizQuestion({
+        difficulty: difficultyForNext,
+        category: 'Any',
+        previousQuestions: prevQuestions,
+      });
+      
+      let imageUrl = 'https://placehold.co/600x400.png';
+      if (questionData.imageHint) {
+         try {
+            toast({ title: "Gerando Imagem...", description: "A IA está criando uma imagem para a pergunta." });
+            const result = await generateQuizImage({ imageHint: questionData.imageHint });
+            imageUrl = result.imageUrl;
+         } catch(e) {
+            console.error("Image generation failed, using placeholder", e);
+            toast({ title: "Erro na Imagem", description: "Não foi possível gerar a imagem, usando uma padrão." });
+         }
+      }
+
+      const newQuestion: Question = {
+        ...questionData,
+        id: answeredQuestions.length + 1,
+        image: imageUrl,
+      };
+
+      setCurrentQuestion(newQuestion);
+      setAnsweredQuestions(prev => [...prev, newQuestion]);
+
+      if (language !== 'Brazilian Portuguese') {
+        await translateQuestion(newQuestion, language);
+      }
+    } catch (error) {
+      console.error('Error fetching new question:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro de Geração',
+        description: 'Não foi possível gerar uma nova pergunta. Por favor, reinicie o quiz.',
+      });
+      setGameState('welcome');
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [answeredQuestions, language, toast, translateQuestion]);
 
 
   const handleStartQuiz = () => {
@@ -152,15 +192,10 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
     setIncorrectAnswersCount(0);
     setCurrentStreak(0);
     setLongestStreak(0);
-    const answeredIds = [];
-    const firstQuestion = pickQuestion('easy', answeredIds);
-    setCurrentQuestion(firstQuestion);
-    setAnsweredQuestions(firstQuestion ? [firstQuestion] : []);
+    setDifficulty('easy');
+    
+    getNewQuestion('easy');
     setGameState('playing');
-
-    if (language !== 'Brazilian Portuguese' && firstQuestion) {
-      translateQuestion(firstQuestion, language);
-    }
   };
 
   const handleLanguageChange = (newLanguage: string) => {
@@ -175,7 +210,6 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
   };
 
   const adaptDifficulty = useCallback(async () => {
-    if (!currentQuestion) return;
     setIsLoadingAI(true);
     toast({
       title: "IA Adaptativa",
@@ -184,16 +218,18 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
     try {
       const result = await adaptQuizDifficulty({
         userScore: score,
-        totalQuestions: initialQuestions.length,
+        totalQuestions: QUIZ_LENGTH,
         questionsAnswered: answeredQuestions.length,
       });
       setDifficulty(result.difficultyLevel);
+      return result.difficultyLevel;
     } catch (error) {
       console.error('Error adapting difficulty:', error);
+      return null;
     } finally {
       setIsLoadingAI(false);
     }
-  }, [score, answeredQuestions.length, currentQuestion, toast]);
+  }, [score, answeredQuestions.length, toast]);
 
   const handleSaveScore = useCallback(() => {
     let playerName = user.name;
@@ -226,37 +262,29 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
     }
   }, [isGuest, user, score, leaderboard]);
 
-  const handleNextQuestion = useCallback(() => {
-    if (answeredQuestions.length === initialQuestions.length) {
-      handleSaveScore(); // Auto-save score at the end
+  const handleNextQuestion = useCallback(async () => {
+    if (answeredQuestions.length === QUIZ_LENGTH) {
+      handleSaveScore();
       setGameState('finished');
       return;
     }
 
-    if (answeredQuestions.length % 4 === 0 && answeredQuestions.length > 0) {
-      adaptDifficulty();
+    let nextDifficulty = difficulty;
+    if (answeredQuestions.length > 0 && answeredQuestions.length % 3 === 0) {
+      const adapted = await adaptDifficulty();
+      if (adapted) {
+        nextDifficulty = adapted;
+      }
     }
     
-    const answeredIds = answeredQuestions.map(q => q.id);
-    const nextQuestion = pickQuestion(difficulty, answeredIds);
-    
-    setCurrentQuestion(nextQuestion);
-    if(nextQuestion){
-      setAnsweredQuestions(prev => [...prev, nextQuestion]);
-    }
+    getNewQuestion(nextDifficulty);
 
     setSelectedAnswer(null);
     setIsAnswerCorrect(null);
     setGameState('playing');
     setTranslatedQuestion(null);
 
-    if (nextQuestion) {
-        if (language !== 'Brazilian Portuguese') {
-            translateQuestion(nextQuestion, language);
-        }
-    }
-
-  }, [answeredQuestions, difficulty, pickQuestion, adaptDifficulty, language, translateQuestion, handleSaveScore]);
+  }, [answeredQuestions.length, difficulty, adaptDifficulty, handleSaveScore, getNewQuestion]);
 
 
   const handleSelectAnswer = (answer: string) => {
@@ -307,7 +335,7 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
       </CardHeader>
       <CardContent className="space-y-6">
         <p className="text-center text-muted-foreground">
-          Teste seus conhecimentos sobre o mundo em um quiz divertido e educativo. Preparado para o desafio?
+          Teste seus conhecimentos sobre o mundo em um quiz dinâmico e com imagens geradas por IA. Preparado para o desafio?
         </p>
         <Leaderboard scores={leaderboard} />
       </CardContent>
@@ -347,12 +375,13 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
   const renderQuiz = () => {
     const displayQuestion = translatedQuestion || currentQuestion;
     
-    if (!displayQuestion) {
+    if (isGenerating || !displayQuestion) {
       return (
         <Card className="w-full max-w-2xl">
-          <CardContent className="p-10 text-center flex items-center justify-center h-96">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="ml-4">Carregando pergunta...</p>
+          <CardContent className="p-10 text-center flex flex-col items-center justify-center h-96">
+            <Loader2 className="w-12 h-12 animate-spin text-primary" />
+            <p className="mt-4 text-lg font-semibold">Gerando um novo desafio para você...</p>
+            <p className="text-muted-foreground">Isso pode levar alguns segundos.</p>
           </CardContent>
         </Card>
       );
@@ -374,14 +403,14 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
 
     return (
       <Card key={questionIndex} className="w-full max-w-2xl animate-in fade-in-0 zoom-in-95 relative">
-        {isTranslating && (
+        {(isTranslating) && (
           <div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center z-10 rounded-lg">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         )}
         <CardHeader>
           <div className="flex justify-between items-start mb-2 gap-4">
-             <Progress value={(questionIndex / initialQuestions.length) * 100} className="mt-2 w-full" />
+             <Progress value={(questionIndex / QUIZ_LENGTH) * 100} className="mt-2 w-full" />
              <Select disabled={isTranslating || gameState === 'feedback'} onValueChange={handleLanguageChange} value={language}>
               <SelectTrigger className="w-[220px]">
                   <Globe className="w-4 h-4 mr-2" />
@@ -395,7 +424,7 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
           </Select>
           </div>
           <div className="flex justify-between items-center text-sm text-muted-foreground">
-            <span>Pergunta {questionIndex + 1} de {initialQuestions.length}</span>
+            <span>Pergunta {questionIndex + 1} de {QUIZ_LENGTH}</span>
             <div className="flex items-center gap-2 font-bold text-primary">
               <Trophy className="w-4 h-4" />
               <span>Pontos: {score}</span>
@@ -426,7 +455,6 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
                 alt={displayQuestion.question}
                 layout="fill"
                 objectFit="cover"
-                data-ai-hint={displayQuestion.imageHint}
               />
             </div>
           )}
@@ -456,7 +484,7 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
                   </AlertDescription>
               </Alert>
               <Button onClick={handleNextQuestion} className="w-full" size="lg">
-                {answeredQuestions.length === initialQuestions.length ? 'Ver Resultados' : 'Próxima Pergunta'}
+                {answeredQuestions.length === QUIZ_LENGTH ? 'Ver Resultados' : 'Próxima Pergunta'}
                 <ArrowRight />
               </Button>
             </>
