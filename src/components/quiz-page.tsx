@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
-import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe, Flame, ArrowRight, LogOut } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe, Flame, ArrowRight, LogOut, BarChart3 } from 'lucide-react';
 import type { Question, PlayerScore } from '@/lib/types';
 import { adaptQuizDifficulty } from '@/ai/flows/adapt-quiz-difficulty';
 import { translateText } from '@/ai/flows/translate-text-flow';
@@ -192,9 +192,8 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
     setIncorrectAnswersCount(0);
     setCurrentStreak(0);
     setLongestStreak(0);
-    setDifficulty('easy');
     
-    getNewQuestion('easy');
+    getNewQuestion(difficulty);
     setGameState('playing');
   };
 
@@ -340,19 +339,35 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
         <Leaderboard scores={leaderboard} />
       </CardContent>
       <CardFooter className="flex-col gap-4">
-        <div className="w-full flex flex-col items-center gap-2">
-           <Label className="text-sm text-muted-foreground">Selecione um idioma para o quiz</Label>
-           <Select onValueChange={setLanguage} defaultValue={language}>
-              <SelectTrigger className="w-[240px]">
-                  <Globe className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Selecione o Idioma" />
-              </SelectTrigger>
-              <SelectContent>
-                  {supportedLanguages.map(lang => (
-                  <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
-                  ))}
-              </SelectContent>
-          </Select>
+        <div className="w-full flex flex-col sm:flex-row items-start justify-center gap-4">
+           <div className="flex flex-col items-center gap-2">
+            <Label htmlFor="language-select" className="text-sm text-muted-foreground">Idioma do Quiz</Label>
+            <Select onValueChange={setLanguage} defaultValue={language}>
+                <SelectTrigger id="language-select" className="w-[240px]">
+                    <Globe className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Selecione o Idioma" />
+                </SelectTrigger>
+                <SelectContent>
+                    {supportedLanguages.map(lang => (
+                    <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+           </div>
+           <div className="flex flex-col items-center gap-2">
+            <Label htmlFor="difficulty-select" className="text-sm text-muted-foreground">Dificuldade Inicial</Label>
+            <Select onValueChange={(value) => setDifficulty(value as 'easy' | 'medium' | 'hard')} defaultValue={difficulty}>
+                <SelectTrigger id="difficulty-select" className="w-[240px]">
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Selecione a Dificuldade" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="easy">Fácil</SelectItem>
+                    <SelectItem value="medium">Médio</SelectItem>
+                    <SelectItem value="hard">Difícil</SelectItem>
+                </SelectContent>
+            </Select>
+           </div>
         </div>
         <Button onClick={handleStartQuiz} className="w-full mt-4" size="lg">
           Começar o Quiz!
