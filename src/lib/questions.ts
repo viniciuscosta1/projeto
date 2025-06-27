@@ -21,7 +21,7 @@ export const initialQuestions: Question[] = [
     type: 'multiple-choice',
     difficulty: 'easy',
     category: 'Idioma',
-    explanation: 'Correto! "Hakuna Matata" é uma frase em Swahili que significa "sem problemas". É falada em vários países da África Oriental.',
+    explanation: '"Hakuna Matata" é uma frase em Swahili que significa "sem problemas". É falada em vários países da África Oriental.',
   },
   {
     id: 3,
@@ -31,7 +31,7 @@ export const initialQuestions: Question[] = [
     type: 'true-false',
     difficulty: 'easy',
     category: 'Sistemas Educacionais',
-    explanation: 'Verdadeiro! O modelo finlandês foca em aprendizado em sala de aula, mais tempo livre e menos estresse, sendo consistentemente classificado como um dos melhores do mundo.',
+    explanation: 'O modelo finlandês foca em aprendizado em sala de aula, mais tempo livre e menos estresse, sendo consistentemente classificado como um dos melhores do mundo.',
   },
   {
     id: 4,
@@ -63,7 +63,7 @@ export const initialQuestions: Question[] = [
     type: 'true-false',
     difficulty: 'medium',
     category: 'Idioma',
-    explanation: 'Exato! Hiragana para palavras nativas e gramática, Katakana para palavras estrangeiras e onomatopeias, e Kanji (caracteres de origem chinesa) para a maioria dos substantivos e radicais de verbos.',
+    explanation: 'Hiragana para palavras nativas e gramática, Katakana para palavras estrangeiras e onomatopeias, e Kanji (caracteres de origem chinesa) para a maioria dos substantivos e radicais de verbos.',
   },
   {
     id: 7,
@@ -95,7 +95,7 @@ export const initialQuestions: Question[] = [
     type: 'multiple-choice',
     difficulty: 'medium',
     category: 'Idioma',
-    explanation: 'Correto! Assim como em inglês, a expressão "É grego para mim" é usada em português para indicar que algo é totalmente incompreensível.',
+    explanation: 'Assim como em inglês, a expressão "É grego para mim" é usada em português para indicar que algo é totalmente incompreensível.',
   },
   {
     id: 10,
@@ -117,7 +117,7 @@ export const initialQuestions: Question[] = [
     type: 'true-false',
     difficulty: 'easy',
     category: 'Sistemas Educacionais',
-    explanation: 'Verdadeiro. A Ivy League é um grupo de oito universidades privadas de elite localizadas no nordeste dos Estados Unidos, como Harvard, Yale e Princeton.',
+    explanation: 'A Ivy League é um grupo de oito universidades privadas de elite localizadas no nordeste dos Estados Unidos, como Harvard, Yale e Princeton.',
   },
   {
     id: 12,
@@ -137,7 +137,7 @@ export const initialQuestions: Question[] = [
     type: 'true-false',
     difficulty: 'easy',
     category: 'Cultura',
-    explanation: 'Falso. Embora o do Rio seja um dos mais famosos, existem outras grandes celebrações de carnaval pelo mundo, como em Veneza (Itália), Nova Orleans (EUA) e Trinidad e Tobago.',
+    explanation: 'Embora o do Rio seja um dos mais famosos, existem outras grandes celebrações de carnaval pelo mundo, como em Veneza (Itália), Nova Orleans (EUA) e Trinidad e Tobago.',
   },
   {
     id: 14,
@@ -157,7 +157,7 @@ export const initialQuestions: Question[] = [
     type: 'true-false',
     difficulty: 'medium',
     category: 'Cultura',
-    explanation: 'Falso! Em alguns lugares, como na Bulgária e partes da Índia, este gesto pode significar "sim", o que pode causar bastante confusão.',
+    explanation: 'Em alguns lugares, como na Bulgária e partes da Índia, este gesto pode significar "sim", o que pode causar bastante confusão.',
   },
   {
     id: 16,
@@ -167,7 +167,7 @@ export const initialQuestions: Question[] = [
     type: 'true-false',
     difficulty: 'hard',
     category: 'Idioma',
-    explanation: 'Verdadeiro. A origem do Basco é um dos grandes mistérios da linguística, pois ele não compartilha uma ancestralidade comum com as línguas indo-europeias que o cercam.',
+    explanation: 'A origem do Basco é um dos grandes mistérios da linguística, pois ele não compartilha uma ancestralidade comum com as línguas indo-europeias que o cercam.',
   },
   {
     id: 17,
@@ -199,7 +199,7 @@ export const initialQuestions: Question[] = [
     type: 'multiple-choice',
     difficulty: 'medium',
     category: 'Sistemas Educacionais',
-    explanation: 'Correto. O "gap year" ou ano sabático é uma pausa que muitos estudantes fazem para ganhar experiência de vida, trabalhar ou viajar antes de iniciar seus estudos universitários.',
+    explanation: 'O "gap year" ou ano sabático é uma pausa que muitos estudantes fazem para ganhar experiência de vida, trabalhar ou viajar antes de iniciar seus estudos universitários.',
   },
   {
     id: 20,

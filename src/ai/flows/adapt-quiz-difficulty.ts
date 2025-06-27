@@ -12,15 +12,15 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const AdaptQuizDifficultyInputSchema = z.object({
-  userScore: z
+  correctAnswersCount: z
     .number()
-    .describe('The current score of the user in the quiz.'),
+    .describe('The number of questions the user has answered correctly.'),
   totalQuestions: z
     .number()
     .describe('The total number of questions in the quiz.'),
   questionsAnswered: z
     .number()
-    .describe('The number of questions the user has answered.'),
+    .describe('The number of questions the user has answered so far.'),
 });
 export type AdaptQuizDifficultyInput = z.infer<
   typeof AdaptQuizDifficultyInputSchema
@@ -52,21 +52,23 @@ const prompt = ai.definePrompt({
   name: 'adaptQuizDifficultyPrompt',
   input: {schema: AdaptQuizDifficultyInputSchema},
   output: {schema: AdaptQuizDifficultyOutputSchema},
-  prompt: `You are an AI quiz master. You are tasked with dynamically adjusting the difficulty of a quiz based on the user's performance.
+  prompt: `You are an AI algorithm for a quiz game, designed to dynamically adjust question difficulty. Analyze the user's performance and determine the optimal difficulty for the next question.
 
-User Score: {{{userScore}}}
-Total Questions: {{{totalQuestions}}}
-Questions Answered: {{{questionsAnswered}}}
+Performance Data:
+- Correct Answers: {{{correctAnswersCount}}}
+- Total Questions in Quiz: {{{totalQuestions}}}
+- Questions Answered So Far: {{{questionsAnswered}}}
 
-Based on the user's score and the number of questions answered, determine whether the next question should be 'easy', 'medium', or 'hard'. Also, include a brief reasoning for your decision.
+Your task is to output a new difficulty ('easy', 'medium', or 'hard') and the reasoning for your decision based on this algorithm:
+1.  If no questions have been answered yet, this is not applicable.
+2.  Calculate the user's current accuracy percentage: (correctAnswersCount / questionsAnswered).
+3.  If accuracy is below 40%, the user is struggling. Recommend 'easy'.
+4.  If accuracy is between 40% and 75%, the user is performing adequately. Recommend 'medium'.
+5.  If accuracy is above 75%, the user is excelling. Recommend 'hard'.
+6.  If it's early in the quiz (less than 3 questions answered), be more conservative with difficulty increases.
+7.  Provide a brief, encouraging reasoning for your choice in Brazilian Portuguese. For example: "Você está indo muito bem! Vamos aumentar um pouco o desafio." or "Vamos tentar uma um pouco mais fácil para pegar o ritmo."
 
-Consider the following guidelines:
-- If the user's score is low relative to the number of questions answered, suggest an easier question.
-- If the user's score is high relative to the number of questions answered, suggest a harder question.
-- If the user's score is moderate relative to the number of questions answered, suggest a medium difficulty question.
-
-Difficulty Level: {{~difficultyLevel~}}
-Reasoning: {{~reasoning~}}`,
+Based on your analysis, provide the new difficulty and reasoning.`,
 });
 
 const adaptQuizDifficultyFlow = ai.defineFlow(

@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
-import { BrainCircuit, Loader2 } from 'lucide-react';
+import { BrainCircuit, Loader2, User } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Por favor, insira um email válido.' }),
@@ -55,6 +55,10 @@ export default function LoginPage() {
       router.push('/');
       router.refresh();
     }
+  };
+
+  const handleGuestLogin = () => {
+    router.push('/?guest=true');
   };
 
   return (
@@ -100,6 +104,23 @@ export default function LoginPage() {
               </Button>
             </form>
           </Form>
+          
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">
+                Ou continue com
+                </span>
+            </div>
+          </div>
+          
+          <Button variant="outline" className="w-full" onClick={handleGuestLogin}>
+            <User className="mr-2 h-4 w-4" />
+            Entrar como Convidado
+          </Button>
+
           <p className="mt-4 text-center text-sm text-muted-foreground">
             Não tem uma conta?{' '}
             <Link href="/register" className="font-medium text-primary hover:underline">
