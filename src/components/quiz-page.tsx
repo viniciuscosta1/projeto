@@ -4,12 +4,13 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
-import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe, Flame, ArrowRight, LogOut, BarChart3 } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, XCircle, Trophy, Sparkles, Loader2, Globe, Flame, ArrowRight, LogOut, BarChart3, HelpCircle } from 'lucide-react';
 import type { Question, PlayerScore } from '@/lib/types';
 import { adaptQuizDifficulty } from '@/ai/flows/adapt-quiz-difficulty';
 import { translateText } from '@/ai/flows/translate-text-flow';
 import { generateQuizQuestion } from '@/ai/flows/generate-quiz-question-flow';
 import { generateQuizImage } from '@/ai/flows/generate-quiz-image-flow';
+import { generateHint } from '@/ai/flows/generate-hint-flow';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,6 +61,9 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
   const [incorrectAnswersCount, setIncorrectAnswersCount] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [longestStreak, setLongestStreak] = useState(0);
+  
+  const [showHintButton, setShowHintButton] = useState(false);
+  const [isGettingHint, setIsGettingHint] = useState(false);
 
   const { toast } = useToast();
 
@@ -84,6 +88,21 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
       console.error('Failed to process leaderboard from localStorage:', error);
     }
   }, [toast]);
+  
+  // Timer for hint button
+  useEffect(() => {
+    // Ensure we are in a state where a hint is relevant
+    if (gameState !== 'playing' || !!selectedAnswer) {
+      setShowHintButton(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+        setShowHintButton(true);
+    }, 30000); // 30 seconds
+
+    return () => clearTimeout(timer); // Cleanup timer
+  }, [gameState, selectedAnswer, currentQuestion]);
 
   const translateQuestion = useCallback(async (questionToTranslate: Question, targetLanguage: string) => {
     if (targetLanguage === 'Brazilian Portuguese') {
@@ -318,6 +337,41 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
     setGameState('feedback');
   };
   
+  const handleGetHint = async () => {
+    if (!currentQuestion || isGettingHint) return;
+
+    setIsGettingHint(true);
+    try {
+      const result = await generateHint({
+        question: currentQuestion.question,
+        options: currentQuestion.options,
+        answer: currentQuestion.answer,
+      });
+      
+      toast({
+        title: 'Aqui está sua dica!',
+        description: (
+            <div className="flex items-start gap-2">
+                <HelpCircle className="h-5 w-5 mt-1 text-primary" />
+                <p>{result.hint}</p>
+            </div>
+        ),
+        duration: 8000,
+      });
+
+    } catch (error) {
+      console.error('Error getting hint:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível gerar uma dica agora.',
+      });
+    } finally {
+      setIsGettingHint(false);
+      setShowHintButton(false); // Hide button after use
+    }
+  };
+  
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -497,6 +551,22 @@ export function QuizPage({ user, isGuest = false }: QuizPageProps) {
           </div>
         </CardContent>
         <CardFooter className="flex-col items-stretch gap-4">
+          {showHintButton && gameState === 'playing' && (
+            <Button
+              variant="outline"
+              onClick={handleGetHint}
+              disabled={isGettingHint}
+              className="w-full animate-in fade-in-0"
+            >
+              {isGettingHint ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <HelpCircle className="mr-2 h-4 w-4" />
+              )}
+              {isGettingHint ? 'Gerando dica...' : 'Precisa de uma dica?'}
+            </Button>
+          )}
+
           {gameState === 'feedback' && (
             <>
               <Alert variant={isAnswerCorrect ? "success" : "destructive"} className="w-full animate-in fade-in-0">
